@@ -34,22 +34,8 @@
     STEP TEN... This is getting long...: Copy and paste the program's output into your tab with webAudioApiV3.js to replace the tracks variable already there.
 
     STEP ELEVEN: Click on the canvas, press restart, and if you did everything right, you should hear your song playing on Khan Academy!
-        
-    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    Side note: If you have another site in mind that has a MIDI copy of your chosen song, you can skip to step five instead.
 */
 
 
