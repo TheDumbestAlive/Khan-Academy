@@ -31,9 +31,14 @@ let spikes = [];
 
 
 const simulation = {
+  doInfGen: false,
+  distOffset: 0,
+  threshold: 1000,
+  overclock: 10,
+  doOverclock: false,
   generations: 0,
   len: 50000,
-  auto: false,
+  auto: true,
   weightRange: [-10, 10],
   biasRange: [-100, 100],
   gravity: 0.9,
@@ -54,10 +59,10 @@ const simulation = {
   dead: [],
   spikes: [],
   distToNextSpike: 400,
-  addSpikes: function (len) {
+  addSpikes: function (len, offset) {
     let spikeChance = floor(random(0, 2));
     let consecutiveSpikes = 0;
-    for(let i = levelStart; i < len + levelStart; i += 25) {
+    for(let i = levelStart + (offset || 0); i < len + levelStart + (offset || 0); i += 25) {
         if(spikeChance === 1 && consecutiveSpikes < 3) {
             simulation.spikes.push(i);
             consecutiveSpikes++;
@@ -161,6 +166,40 @@ const simulation = {
       }
     
   },
+  displayPlayerInfo: function () {
+      if(simulation.players.length === 0) {
+          return;
+      }
+      let plyr = simulation.players[simulation.selected];
+      textSize(20);
+      fill(255, 255, 255);
+      text("Player #"+(simulation.selected + 1) + '/' + simulation.players.length, 10, 330);
+      textSize(15);
+      text("Weight: " + (Math.trunc(plyr.ai.weight * Math.pow(10, 5)) / (10 * Math.pow(10, 5))), 10, 350);
+      text("Bias: " + (Math.trunc(plyr.ai.bias * Math.pow(10, 5)) / (10 * Math.pow(10, 5))), 10, 370);
+      noFill();
+      stroke(255, 255, 255);
+      ellipse(210, 350, 75, 75);
+      fill(255, 255, 255);
+      textAlign(CENTER, CENTER);
+      text("Input: " + simulation.distToNextSpike, 210, 350);
+      textSize(30);
+      text("->", 270, 350);
+      let out = plyr.ai.output(simulation.distToNextSpike);
+      
+      textSize(20);
+      
+      if(out) {
+          fill(0, 255, 0);
+          text("Jump", 320, 350);
+      }
+      else {
+          fill(255, 0, 0);
+          text("Don't Jump", 340, 350);
+      }
+      
+      textAlign(CORNER);
+  },
   drawAllPlayers: function () {
     for(let i = 0; i < simulation.players.length; i++) {
       simulation.draw(simulation.players[i], 1);
@@ -169,6 +208,15 @@ const simulation = {
       simulation.draw(simulation.players[simulation.selected], 0);
     }
   },
+  infiniteGeneration: function () {
+    if(simulation.x > simulation.spikes.at(-1)) {
+        simulation.spikes = [];
+        simulation.distOffset += simulation.x;
+        simulation.x = 100;
+        simulation.addSpikes (simulation.len);
+        
+    }
+  }
 };
 simulation.addSpikes(simulation.len);
 const Player = function (w, b, img) {
@@ -197,7 +245,8 @@ function fillPlayers (count) {
 }
 function nextGen () {
   simulation.generations++;
-  simulation.bestDistance = Math.max(simulation.x - 100, simulation.bestDistance);
+  simulation.bestDistance = Math.max((simulation.x + simulation.distOffset) - 100, simulation.bestDistance);
+  simulation.distOffset = 0;
   simulation.x = 100;
   
   simulation.spikes = [];
@@ -224,49 +273,70 @@ function keyReleased () {
     if((keys.a || keys.A)) {
       simulation.auto = !simulation.auto;
     }
+    if((keys.o || keys.O)) {
+      simulation.doOverclock = !simulation.doOverclock;
+    }
+    if((keys.i || keys.I)) {
+      simulation.doInfGen = !simulation.doInfGen;
+    }
     keys[key.toString()] = false;
     keys[keyCode] = false;
     
 }
-/*
-function mouseClicked () {
-            restartCourse();
-}
-*/
-//let distToNextSpike = spikes[0] - player.x;
-
 frameRate(60);
 draw = function() {
   background(21, 0, 107);
   fill(14, 0, 79);
   noStroke();
   rect(0, simulation.ground + 30, width, height - simulation.ground);
-  if(simulation.players.length > 0) {
-    simulation.x += simulation.speed;
+  if(simulation.doOverclock) {
+    for(let i = 0; (i < simulation.overclock); i++) {
+      if(simulation.doInfGen) {
+        simulation.infiniteGeneration();
+      }
+      if(simulation.players.length > 0) {
+        simulation.x += simulation.speed;
+      }
+      else if (simulation.auto) {
+        nextGen();
+      }
+    
+      simulation.updateDist();
+      simulation.drawAllPlayers();
+      simulation.runAllPlayers();
+      pushMatrix();
+      translate(-simulation.x + 100, 0);
+      simulation.drawAllSpikes(1);
+      popMatrix();
+    }
   }
-  else if (simulation.auto) {
-    nextGen();
+  else {
+    if(simulation.players.length > 0) {
+      simulation.x += simulation.speed;
+    }
+    else if (simulation.auto) {
+      nextGen();
+    }
+    
+    simulation.updateDist();
+    simulation.drawAllPlayers();
+    simulation.runAllPlayers();
+    pushMatrix();
+    translate(-simulation.x + 100, 0);
+    simulation.drawAllSpikes(1);
+    popMatrix();
   }
-  
-  simulation.updateDist();
-  simulation.drawAllPlayers();
-  simulation.runAllPlayers();
-  pushMatrix();
-  translate(-simulation.x + 100, 0);
-  simulation.drawAllSpikes(1);
-  popMatrix();
-  
   noStroke();
   pushMatrix();
   translate(-95, 0);
   fill(123, 145, 201);
-  rect(150, 0, 275, 100, 20);
+  rect(150, 0, 275, 125, 20);
   fill(255, 255, 255);
   textSize(13);
   //9999999
   text('Cubes Alive: ' + simulation.players.length, 160, 25);
   text('  Started With: ' + simulation.playerCount, 160, 40);
-  text('Current Distance: ' + (simulation.x - 100), 160, 55);
+  text('Current Distance: ' + (simulation.x - 100 + simulation.distOffset), 160, 55);
   text('  Best Distance: ' + (simulation.bestDistance), 160, 70);
   text('Current Generation: ' + (simulation.generations), 160, 85);
   
@@ -278,7 +348,20 @@ draw = function() {
   else {
     text('  (OFF)' , 325, 50);
   }
+  if(!simulation.doOverclock) {
+    text('O to toggle \noverclock (OFF)' , 325, 65);
+  }
+  else {
+    text('O to toggle \nspeed (ON)' , 325, 65);
+  }
+  if(!simulation.doInfGen) {
+    text('I to toggle \nendless (OFF)' , 325, 95);
+  }
+  else {
+    text('I to toggle \nendless (ON)' , 325, 95);
+  }
   popMatrix();
   //stroke(255, 0, 0);
   //line(200, 0, 200, 400);
+  simulation.displayPlayerInfo();
 };
