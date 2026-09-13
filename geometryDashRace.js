@@ -1,8 +1,13 @@
 //jshint esnext:true
 ///cs/pro/5733417664643072
 
-const bDeviation = [-2, 2];
-const wDeviation = [-0.2, 0.2];
+
+const wStart = 10;
+const bStart = 100;
+
+
+const bDeviation = 2;
+const wDeviation = 0.2;
 
 const step = function (n) {
   return Number(n >= 0);
@@ -33,7 +38,10 @@ const simulation = {
   speed: 5,
   jump: 15,
   x: 100,
+  playerCount: 20,
+  bestDistance: 0,
   players: [],
+  survived: null,
   selected: 0,
   select: function (indx) {
     if(indx >= 0 && indx < simulation.players.length) {
@@ -75,8 +83,8 @@ const simulation = {
   spikeCollision: function (playerObj, x, y, b, h) {
     return (
         (simulation.x + 30 > x - b / 5) &&
-        (playerObj.x < x - b / 5 + (b / 2.5)) &&
-        (simulation.y + 30 > y - h / 1.8) &&
+        (simulation.x < x - b / 5 + (b / 2.5)) &&
+        (playerObj.y + 30 > y - h / 1.8) &&
         (playerObj.y < y)
     );
 },
@@ -85,11 +93,15 @@ const simulation = {
       let dead = false;
       for(let i = 0; i < simulation.spikes.length && !dead; i++) {
           if(simulation.spikeCollision(simulation.players[k], simulation.spikes[i], 300, 25, 25)) {
+              if(simulation.selected === k) {
+                simulation.selected = 0; 
+              }
               simulation.players.splice(k, 1);
               dead = true;
           }
       }
     }
+
 },
   updateDist: function () {
     for(let i = 0; i < simulation.spikes.length; i++) {
@@ -101,8 +113,8 @@ const simulation = {
       }
   },
   draw: function (playerObj, fade) {
-        fill(0, 0, 0);  
-        if(fade) {fill(0, 0, 0, 75);}
+        fill(0, 255, 187);  
+        if(fade) {fill(26, 110, 88);}
         pushMatrix();
         translate(115, playerObj.y + 15);
         rotate(playerObj.rotation);
@@ -128,22 +140,30 @@ const simulation = {
         if(jump && playerObj.touchingGround) {
             playerObj.yv -= simulation.jump;
         }
+        
         return playerObj;
     },
   runAllPlayers: function () {
-    simulation.allSpikeCollisions();
-    for(let i = 0; i < simulation.players.length; i++) {
-      let currPlayer = simulation.players[i];
-      currPlayer = simulation.doJumps(currPlayer.ai.output());
-      simulation.players[i] = simulation.doPhysics(currPlayer);
-    }
+    //simulation.allSpikeCollisions();
+      simulation.allSpikeCollisions();
+      for(let i = 0; i < simulation.players.length; i++) {
+        let currPlayer = simulation.players[i];
+        currPlayer = simulation.doJumps(currPlayer, currPlayer.ai.output(simulation.distToNextSpike));
+        currPlayer = simulation.doPhysics(currPlayer);
+        simulation.players[i] = currPlayer;
+      }
+    
   },
   drawAllPlayers: function () {
     for(let i = 0; i < simulation.players.length; i++) {
-      simulation.draw(simulation.players[i], (simulation.selected === i));
+      simulation.draw(simulation.players[i], 1);
+    }
+    if(simulation.players.length > 0) {
+      simulation.draw(simulation.players[simulation.selected], 0);
     }
   },
 };
+simulation.addSpikes(5000);
 const Player = function (w, b, img) {
   this.ai = new PlayerAI(w, b);
   this.y = simulation.ground;
@@ -155,18 +175,23 @@ const Player = function (w, b, img) {
 function fillPlayers (count) {
   let trueCount = Math.min(1000, count);
   for(let i = 0; i < trueCount; i++) {
-    simulation.players.push(new Player());
+    let w;
+    let b;
+    if(!simulation.survived) {
+      w = random(-wStart, wStart);
+      b = random(-bStart, bStart);
+    }
+    simulation.players.push(new Player(w, b));
   }
 }
-
+fillPlayers(simulation.playerCount);
 let jumpInput = 0;
 
 let keys = [];
 
 function keyPressed () {
     keys[key.toString()] = true;
-    keys[keyCode] = true;
-    
+    keys[keyCode] = true; 
 }
 function keyReleased () {
     keys[key.toString()] = false;
@@ -181,5 +206,36 @@ function mouseClicked () {
 
 frameRate(60);
 draw = function() {
-
+  background(21, 0, 107);
+  fill(14, 0, 79);
+  noStroke();
+  rect(0, simulation.ground + 30, width, height - simulation.ground);
+  if(simulation.players.length > 0) {
+    simulation.x += simulation.speed;
+  }
+  
+  simulation.updateDist();
+  simulation.drawAllPlayers();
+  simulation.runAllPlayers();
+  pushMatrix();
+  translate(-simulation.x + 100, 0);
+  simulation.drawAllSpikes(1);
+  popMatrix();
+  
+  noStroke();
+  pushMatrix();
+  translate(-95, 0);
+  fill(123, 145, 201);
+  rect(150, 0, 275, 100, 20);
+  fill(255, 255, 255);
+  textSize(15);
+  //9999999
+  text('Cubes Alive: ' + simulation.players.length, 160, 25);
+  text('  Started With: ' + simulation.playerCount, 160, 45);
+  text('Current Distance: ' + (simulation.x - 100), 160, 65);
+  text('  Best Distance: ' + (simulation.bestDistance), 160, 85);
+  text('R to restart' , 325, 20);
+  popMatrix();
+  //stroke(255, 0, 0);
+  //line(200, 0, 200, 400);
 };
