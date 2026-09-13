@@ -31,6 +31,9 @@ let spikes = [];
 
 
 const simulation = {
+  generations: 0,
+  len: 50000,
+  auto: false,
   weightRange: [-10, 10],
   biasRange: [-100, 100],
   gravity: 0.9,
@@ -38,7 +41,7 @@ const simulation = {
   speed: 5,
   jump: 15,
   x: 100,
-  playerCount: 20,
+  playerCount: 100,
   bestDistance: 0,
   players: [],
   survived: null,
@@ -96,7 +99,8 @@ const simulation = {
               if(simulation.selected === k) {
                 simulation.selected = 0; 
               }
-              simulation.players.splice(k, 1);
+              let deceased = simulation.players.splice(k, 1)[0];
+              simulation.dead.push(deceased);
               dead = true;
           }
       }
@@ -152,6 +156,9 @@ const simulation = {
         currPlayer = simulation.doPhysics(currPlayer);
         simulation.players[i] = currPlayer;
       }
+      if(simulation.players.length === 0) {
+        simulation.survived = simulation.dead.at(-1);
+      }
     
   },
   drawAllPlayers: function () {
@@ -163,7 +170,7 @@ const simulation = {
     }
   },
 };
-simulation.addSpikes(5000);
+simulation.addSpikes(simulation.len);
 const Player = function (w, b, img) {
   this.ai = new PlayerAI(w, b);
   this.y = simulation.ground;
@@ -181,8 +188,25 @@ function fillPlayers (count) {
       w = random(-wStart, wStart);
       b = random(-bStart, bStart);
     }
+    else {
+      w = simulation.survived.ai.weight + random(-wDeviation, wDeviation);
+      b = simulation.survived.ai.bias + random(-bDeviation, bDeviation);
+    }
     simulation.players.push(new Player(w, b));
   }
+}
+function nextGen () {
+  simulation.generations++;
+  simulation.bestDistance = Math.max(simulation.x - 100, simulation.bestDistance);
+  simulation.x = 100;
+  
+  simulation.spikes = [];
+  simulation.addSpikes(simulation.len);
+  
+  simulation.dead = [];
+  
+  fillPlayers(simulation.playerCount);
+  
 }
 fillPlayers(simulation.playerCount);
 let jumpInput = 0;
@@ -194,8 +218,15 @@ function keyPressed () {
     keys[keyCode] = true; 
 }
 function keyReleased () {
+    if((keys.r || keys.R) && (simulation.players.length === 0)) {
+      nextGen();
+    }
+    if((keys.a || keys.A)) {
+      simulation.auto = !simulation.auto;
+    }
     keys[key.toString()] = false;
     keys[keyCode] = false;
+    
 }
 /*
 function mouseClicked () {
@@ -213,6 +244,9 @@ draw = function() {
   if(simulation.players.length > 0) {
     simulation.x += simulation.speed;
   }
+  else if (simulation.auto) {
+    nextGen();
+  }
   
   simulation.updateDist();
   simulation.drawAllPlayers();
@@ -228,13 +262,22 @@ draw = function() {
   fill(123, 145, 201);
   rect(150, 0, 275, 100, 20);
   fill(255, 255, 255);
-  textSize(15);
+  textSize(13);
   //9999999
   text('Cubes Alive: ' + simulation.players.length, 160, 25);
-  text('  Started With: ' + simulation.playerCount, 160, 45);
-  text('Current Distance: ' + (simulation.x - 100), 160, 65);
-  text('  Best Distance: ' + (simulation.bestDistance), 160, 85);
+  text('  Started With: ' + simulation.playerCount, 160, 40);
+  text('Current Distance: ' + (simulation.x - 100), 160, 55);
+  text('  Best Distance: ' + (simulation.bestDistance), 160, 70);
+  text('Current Generation: ' + (simulation.generations), 160, 85);
+  
   text('R to restart' , 325, 20);
+  text('A to toggle auto' , 325, 35);
+  if(simulation.auto) {
+    text('  (ON)' , 325, 50);
+  }
+  else {
+    text('  (OFF)' , 325, 50);
+  }
   popMatrix();
   //stroke(255, 0, 0);
   //line(200, 0, 200, 400);
